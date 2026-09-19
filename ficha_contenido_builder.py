@@ -1,4 +1,4 @@
-
+"""Patron Builder - Construccion de fichas de contenido."""
 
 from abc import ABC, abstractmethod
 
@@ -58,11 +58,8 @@ class FichaContenidoBuilderEstandar(FichaContenidoBuilder):
         if idiomas_disponibles:
             self._ficha.idiomas_disponibles = list(idiomas_disponibles)
         else:
-            # Trazabilidad con la Semana 1 (Singleton): si no se indica
-            # un idioma, se usa el idioma por defecto de la plataforma.
             idioma_por_defecto = ConfiguracionGlobal.obtener_instancia().obtener_parametro("idioma_por_defecto")
             self._ficha.idiomas_disponibles = [idioma_por_defecto]
-
         if subtitulos_disponibles:
             self._ficha.subtitulos_disponibles = list(subtitulos_disponibles)
         return self
@@ -84,7 +81,6 @@ class CatalogoDirector:
         self._builder = builder
 
     def construir_ficha_basica(self, contenido_base):
-        """Construye una ficha minima: solo el contenido base y el idioma por defecto."""
         self._builder.definir_contenido_base(contenido_base)
         self._builder.definir_idiomas_y_subtitulos()
         return self._builder.obtener_ficha()
@@ -93,10 +89,24 @@ class CatalogoDirector:
                                   clasificacion_audiencia, anio_lanzamiento,
                                   idiomas_disponibles, subtitulos_disponibles,
                                   reparto, director_obra):
-        """Construye una ficha con toda la metadata disponible."""
         self._builder.definir_contenido_base(contenido_base)
         self._builder.definir_sinopsis_y_genero(sinopsis, genero)
         self._builder.definir_clasificacion_y_anio(clasificacion_audiencia, anio_lanzamiento)
         self._builder.definir_idiomas_y_subtitulos(idiomas_disponibles, subtitulos_disponibles)
         self._builder.definir_reparto(reparto, director_obra)
+        return self._builder.obtener_ficha()
+
+    def construir_ficha_regional(self, contenido_base, fabrica_regional, sinopsis=None, genero=None):
+        """Usa una fabrica abstracta (Abstract Factory) para aplicar la
+        politica de clasificacion y el idioma correspondientes a una region.
+        """
+        politica = fabrica_regional.crear_politica_clasificacion()
+        idiomas = fabrica_regional.crear_configuracion_idiomas()
+
+        self._builder.definir_contenido_base(contenido_base)
+        self._builder.definir_sinopsis_y_genero(sinopsis, genero)
+        self._builder.definir_clasificacion_y_anio(politica.obtener_clasificacion_por_defecto(), None)
+        self._builder.definir_idiomas_y_subtitulos(
+            [idiomas.obtener_idioma_principal()] + idiomas.obtener_idiomas_secundarios()
+        )
         return self._builder.obtener_ficha()

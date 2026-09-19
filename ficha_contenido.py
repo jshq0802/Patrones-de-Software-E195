@@ -1,10 +1,11 @@
+"""Patron Builder y Prototype - Ficha de metadata de un contenido."""
 
 
 class FichaContenido:
-    """Producto: representa la ficha completa de un contenido del catalogo."""
+    """Producto del patron Builder y prototipo clonable del patron Prototype."""
 
     def __init__(self):
-        self.contenido_base = None          # Objeto Contenido (Semana 2 - Factory Method)
+        self.contenido_base = None
         self.sinopsis = None
         self.genero = None
         self.clasificacion_audiencia = None
@@ -13,6 +14,21 @@ class FichaContenido:
         self.subtitulos_disponibles = []
         self.reparto = []
         self.director_obra = None
+
+    def clonar(self):
+        """Patron Prototype: crea una copia independiente de la ficha actual.
+
+        El contenido_base se comparte con el original (es el mismo material
+        audiovisual), mientras que las listas se copian de forma
+        independiente para que modificar el clon no afecte al original.
+        """
+        import copy
+
+        nueva_ficha = copy.copy(self)
+        nueva_ficha.idiomas_disponibles = list(self.idiomas_disponibles)
+        nueva_ficha.subtitulos_disponibles = list(self.subtitulos_disponibles)
+        nueva_ficha.reparto = list(self.reparto)
+        return nueva_ficha
 
     def __str__(self):
         info_base = self.contenido_base.obtener_informacion() if self.contenido_base else "Sin contenido base"

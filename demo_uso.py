@@ -1,7 +1,8 @@
-
+"""Demo integrado de los patrones implementados en el proyecto."""
 
 from configuracion_global import ConfiguracionGlobal
 from gestor_contenido_service import ServicioPeliculas, ServicioSeries
+from configuracion_regional import FabricaConfiguracionLatam, FabricaConfiguracionUSA
 from ficha_contenido_builder import FichaContenidoBuilderEstandar, CatalogoDirector
 
 
@@ -22,7 +23,7 @@ class GestorReproduccion:
 
 
 if __name__ == "__main__":
-    # --- Semana 1: Singleton ---
+    print("=== Singleton ===")
     config = ConfiguracionGlobal.obtener_instancia()
     config.establecer_parametro("calidad_maxima", "1080p")
     config.registrar_credencial("servicio_drm", "clave-secreta-123")
@@ -32,12 +33,9 @@ if __name__ == "__main__":
 
     print(usuarios.conectar_bd())
     print(reproduccion.calidad_por_defecto())
-    print("Misma instancia en toda la app:",
-          usuarios.config is reproduccion.config is config)
+    print("Misma instancia en toda la app:", usuarios.config is reproduccion.config is config)
 
-    print("-" * 60)
-
-    # --- Semana 2: Factory Method ---
+    print("\n=== Factory Method ===")
     servicio_peliculas = ServicioPeliculas()
     servicio_series = ServicioSeries()
 
@@ -50,23 +48,15 @@ if __name__ == "__main__":
     print(pelicula.reproducir())
     print(serie.reproducir())
 
-    print("-" * 60)
-
-    # --- Semana 3: Builder ---
+    print("\n=== Builder ===")
     director_catalogo = CatalogoDirector(FichaContenidoBuilderEstandar())
 
-    # Ficha basica: solo el contenido base y el idioma por defecto
-    # tomado del Singleton de la Semana 1.
     ficha_basica = director_catalogo.construir_ficha_basica(pelicula)
     print(ficha_basica)
 
-    print("-" * 60)
-
-    # Ficha completa: toda la metadata disponible, reutilizando el
-    # contenido de tipo Serie creado con Factory Method en la Semana 2.
     ficha_completa = director_catalogo.construir_ficha_completa(
         contenido_base=serie,
-        sinopsis="Un grupo de desarrolladores enfrenta retos de diseño de software.",
+        sinopsis="Un grupo de desarrolladores enfrenta retos de diseno de software.",
         genero="Drama tecnologico",
         clasificacion_audiencia="13+",
         anio_lanzamiento=2024,
@@ -76,3 +66,38 @@ if __name__ == "__main__":
         director_obra="Directora Ejemplo",
     )
     print(ficha_completa)
+
+    print("\n=== Abstract Factory ===")
+    fabrica_latam = FabricaConfiguracionLatam()
+    fabrica_usa = FabricaConfiguracionUSA()
+
+    director_regional = CatalogoDirector(FichaContenidoBuilderEstandar())
+    ficha_latam = director_regional.construir_ficha_regional(
+        contenido_base=pelicula,
+        fabrica_regional=fabrica_latam,
+        sinopsis="Edicion para Latinoamerica.",
+        genero="Ciencia ficcion",
+    )
+    print(ficha_latam)
+
+    director_regional_usa = CatalogoDirector(FichaContenidoBuilderEstandar())
+    ficha_usa = director_regional_usa.construir_ficha_regional(
+        contenido_base=pelicula,
+        fabrica_regional=fabrica_usa,
+        sinopsis="US edition.",
+        genero="Sci-Fi",
+    )
+    print(ficha_usa)
+
+    print("\n=== Prototype ===")
+    ficha_clonada = ficha_completa.clonar()
+    ficha_clonada.clasificacion_audiencia = "16+"
+    ficha_clonada.idiomas_disponibles.append("fr")
+
+    print("Ficha original:")
+    print(ficha_completa)
+    print("Ficha clonada (editada):")
+    print(ficha_clonada)
+    print("Comparten el mismo contenido_base:", ficha_completa.contenido_base is ficha_clonada.contenido_base)
+    print("Las listas de idiomas son independientes:",
+          ficha_completa.idiomas_disponibles is not ficha_clonada.idiomas_disponibles)

@@ -1,3 +1,7 @@
+"""Pruebas unitarias del patron Builder (FichaContenido / CatalogoDirector).
+
+Ejecucion: python -m unittest test_builder_ficha_contenido.py -v
+"""
 
 import unittest
 
@@ -9,14 +13,11 @@ from ficha_contenido_builder import FichaContenidoBuilderEstandar, CatalogoDirec
 class TestBuilderFichaContenido(unittest.TestCase):
 
     def setUp(self):
-        # Se reinicia el Singleton de configuracion antes de cada prueba
-        # para que los casos sean independientes entre si.
         ConfiguracionGlobal._reiniciar_para_pruebas()
         self.pelicula = ServicioPeliculas().crear_contenido("Interestelar", 169)
         self.serie = ServicioSeries().crear_contenido("Breaking Bad", 47, numero_episodios=62)
 
     def test_01_director_construye_ficha_basica_con_datos_minimos(self):
-        """La ficha basica solo debe traer el contenido base establecido."""
         director = CatalogoDirector(FichaContenidoBuilderEstandar())
         ficha = director.construir_ficha_basica(self.pelicula)
         self.assertIs(ficha.contenido_base, self.pelicula)
@@ -24,17 +25,12 @@ class TestBuilderFichaContenido(unittest.TestCase):
         self.assertIsNone(ficha.genero)
 
     def test_02_ficha_basica_usa_idioma_por_defecto_del_singleton(self):
-        """
-        Trazabilidad con la Semana 1: si no se especifican idiomas, el
-        builder debe tomar el idioma por defecto de ConfiguracionGlobal.
-        """
         ConfiguracionGlobal.obtener_instancia().establecer_parametro("idioma_por_defecto", "pt")
         director = CatalogoDirector(FichaContenidoBuilderEstandar())
         ficha = director.construir_ficha_basica(self.pelicula)
         self.assertEqual(ficha.idiomas_disponibles, ["pt"])
 
     def test_03_director_construye_ficha_completa_con_todos_los_datos(self):
-        """La ficha completa debe contener toda la metadata proporcionada."""
         director = CatalogoDirector(FichaContenidoBuilderEstandar())
         ficha = director.construir_ficha_completa(
             contenido_base=self.serie,
@@ -57,10 +53,6 @@ class TestBuilderFichaContenido(unittest.TestCase):
         self.assertEqual(ficha.director_obra, "Directora X")
 
     def test_04_ficha_completa_conserva_contenido_base_de_factory_method(self):
-        """
-        Trazabilidad con la Semana 2: la ficha debe conservar el objeto
-        Contenido (Pelicula/Serie) creado con Factory Method.
-        """
         director = CatalogoDirector(FichaContenidoBuilderEstandar())
         ficha = director.construir_ficha_completa(
             contenido_base=self.serie,
@@ -77,10 +69,6 @@ class TestBuilderFichaContenido(unittest.TestCase):
         self.assertEqual(ficha.contenido_base.numero_episodios, 62)
 
     def test_05_builder_permite_encadenamiento_de_metodos(self):
-        """
-        Cada paso del Concrete Builder debe devolver self, permitiendo
-        el encadenamiento de metodos (estilo Fluent Builder).
-        """
         builder = FichaContenidoBuilderEstandar()
         resultado = (
             builder
@@ -93,7 +81,6 @@ class TestBuilderFichaContenido(unittest.TestCase):
         self.assertEqual(ficha.genero, "Ciencia ficcion")
 
     def test_06_builders_independientes_no_comparten_estado(self):
-        """Dos builders distintos deben producir fichas independientes."""
         builder_uno = FichaContenidoBuilderEstandar()
         builder_dos = FichaContenidoBuilderEstandar()
 

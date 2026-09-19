@@ -1,10 +1,6 @@
-"""
-Modulo: test_factory_method_contenido.py
-Suite de pruebas unitarias para el patron Factory Method aplicado a la
-creacion de contenido (Pelicula, Serie).
+"""Pruebas unitarias del patron Factory Method (Contenido / GestorContenidoService).
 
-Ejecucion:
-    python -m unittest test_factory_method_contenido.py -v
+Ejecucion: python -m unittest test_factory_method_contenido.py -v
 """
 
 import unittest
@@ -21,24 +17,19 @@ from configuracion_global import ConfiguracionGlobal
 class TestFactoryMethodContenido(unittest.TestCase):
 
     def setUp(self):
-        # Se reinicia el Singleton de configuracion antes de cada prueba
-        # para que los casos sean independientes entre si.
         ConfiguracionGlobal._reiniciar_para_pruebas()
 
     def test_01_servicio_peliculas_crea_instancia_de_pelicula(self):
-        """El creador concreto de peliculas debe devolver un objeto Pelicula."""
         servicio = ServicioPeliculas()
         contenido = servicio.crear_contenido("Interestelar", 169)
         self.assertIsInstance(contenido, Pelicula)
 
     def test_02_servicio_series_crea_instancia_de_serie(self):
-        """El creador concreto de series debe devolver un objeto Serie."""
         servicio = ServicioSeries()
         contenido = servicio.crear_contenido("Breaking Bad", 47, numero_episodios=62)
         self.assertIsInstance(contenido, Serie)
 
     def test_03_productos_cumplen_la_interfaz_contenido(self):
-        """Tanto Pelicula como Serie deben cumplir la interfaz Contenido."""
         pelicula = ServicioPeliculas().crear_contenido("Interestelar", 169)
         serie = ServicioSeries().crear_contenido("Breaking Bad", 47, numero_episodios=62)
         self.assertIsInstance(pelicula, Contenido)
@@ -56,21 +47,11 @@ class TestFactoryMethodContenido(unittest.TestCase):
         self.assertIn("62", mensaje)
 
     def test_06_publicar_contenido_usa_calidad_configurada(self):
-        """
-        Verifica la integracion con el Singleton de la Semana 1: el
-        metodo de negocio publicar_contenido() debe reflejar la calidad
-        maxima configurada en ConfiguracionGlobal.
-        """
         ConfiguracionGlobal.obtener_instancia().establecer_parametro("calidad_maxima", "720p")
         resultado = ServicioPeliculas().publicar_contenido("Interestelar", 169)
         self.assertIn("720p", resultado)
 
     def test_07_agregar_nuevo_creador_no_modifica_metodo_de_negocio(self):
-        """
-        Valida el principio abierto/cerrado (OCP): se agrega un nuevo
-        creador concreto (simulando un futuro tipo 'Documental') sin
-        modificar ni una linea de GestorContenidoService.publicar_contenido().
-        """
 
         class Documental(Contenido):
             tipo = "Documental"

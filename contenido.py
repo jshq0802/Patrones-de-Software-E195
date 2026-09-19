@@ -1,23 +1,10 @@
-"""
-Modulo: contenido.py
-Patron: FACTORY METHOD (creacional)
-Proyecto: Plataforma de Streaming de Video
-Semana: 2
-
-Proposito
----------
-Definir el "Producto" del patron Factory Method: la interfaz Contenido
-y sus implementaciones concretas (Pelicula, Serie). Esta interfaz
-permite que el modulo de Gestion de Contenido trabaje con distintos
-tipos de contenido audiovisual sin depender de sus clases concretas,
-cumpliendo con el principio de inversion de dependencias (DIP).
-"""
+"""Patron Factory Method - Productos de contenido audiovisual."""
 
 from abc import ABC, abstractmethod
 
 
 class Contenido(ABC):
-    """Interfaz comun para todo el contenido audiovisual del catalogo."""
+    """Interfaz comun para el contenido audiovisual del catalogo."""
 
     def __init__(self, titulo, duracion_minutos):
         self.titulo = titulo
@@ -25,7 +12,6 @@ class Contenido(ABC):
 
     @abstractmethod
     def reproducir(self):
-        """Logica de reproduccion especifica de cada tipo de contenido."""
         raise NotImplementedError
 
     def obtener_informacion(self):
@@ -33,8 +19,6 @@ class Contenido(ABC):
 
 
 class Pelicula(Contenido):
-    """Producto concreto: contenido de tipo pelicula."""
-
     tipo = "Pelicula"
 
     def reproducir(self):
@@ -42,8 +26,6 @@ class Pelicula(Contenido):
 
 
 class Serie(Contenido):
-    """Producto concreto: contenido de tipo serie (organizada por episodios)."""
-
     tipo = "Serie"
 
     def __init__(self, titulo, duracion_minutos, numero_episodios):
