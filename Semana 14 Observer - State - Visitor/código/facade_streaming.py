@@ -1,0 +1,159 @@
+
+from configuracion_global import ConfiguracionGlobal
+from gestor_contenido_service import ServicioPeliculas, ServicioSeries
+from configuracion_regional import FabricaConfiguracionLatam, FabricaConfiguracionUSA
+from ficha_contenido_builder import FichaContenidoBuilderEstandar, CatalogoDirector
+from servicio_subtitulos import ProveedorSubtitulosExterno, AdaptadorProveedorSubtitulos
+from reproduccion_bridge import MotorHTML5, MotorNativo, ReproductorEstandar, ReproductorPremium
+from lista_reproduccion import ListaReproduccion, ContenidoHoja
+from contenido_decorator import ConSubtitulos, ConAudioDescriptivo, ConMarcaDeAgua
+from flyweight_perfiles import FabricaPerfiles, SesionReproduccion
+from mediador_reproduccion import (MediadorReproduccion, ControlReproduccion,
+                                    ControlSubtitulos, ColaReproduccion, RegistroActividad)
+from observador_novedades import CanalNovedades, SuscriptorUsuario, Novedad
+from estado_suscripcion import limitar_calidad
+from visitante_catalogo import VisitanteReporte, VisitanteCostoLicencias
+from proxy_streaming import ProxyServidorStreaming, edad_minima_de
+
+
+class FachadaStreaming:
+
+    FABRICAS_REGIONALES = {
+        "LATAM": FabricaConfiguracionLatam,
+        "USA": FabricaConfiguracionUSA,
+    }
+
+    def __init__(self, region: str = "LATAM"):
+        self._configuracion = ConfiguracionGlobal.obtener_instancia()
+        self._servicio_peliculas = ServicioPeliculas()
+        self._servicio_series = ServicioSeries()
+        self._adaptador_subtitulos = AdaptadorProveedorSubtitulos(ProveedorSubtitulosExterno())
+        self._fabrica_perfiles = FabricaPerfiles()
+        self._proxies = {}
+        self._sesiones = []
+        self.canal_novedades = CanalNovedades()
+        self._suscriptores = {}
+        self.establecer_region(region)
+
+    def establecer_region(self, region: str):
+        fabrica_cls = self.FABRICAS_REGIONALES.get(region, FabricaConfiguracionLatam)
+        self._fabrica_regional = fabrica_cls()
+        self._region = region
+        return self._region
+
+    def publicar_pelicula(self, titulo, duracion_minutos, sinopsis=None, genero=None):
+        contenido = self._servicio_peliculas.crear_contenido(titulo, duracion_minutos)
+        director = CatalogoDirector(FichaContenidoBuilderEstandar())
+        return director.construir_ficha_regional(contenido, self._fabrica_regional, sinopsis, genero)
+
+    def publicar_serie(self, titulo, duracion_minutos, numero_episodios, sinopsis=None, genero=None):
+        contenido = self._servicio_series.crear_contenido(
+            titulo, duracion_minutos, numero_episodios=numero_episodios
+        )
+        director = CatalogoDirector(FichaContenidoBuilderEstandar())
+        return director.construir_ficha_regional(contenido, self._fabrica_regional, sinopsis, genero)
+
+    def calidad_para(self, usuario=None):
+        """State: la calidad real es la menor entre el ajuste global y la del plan."""
+        calidad = self._configuracion.obtener_parametro("calidad_maxima")
+        if usuario is None or usuario.suscripcion.calidad_maxima is None:
+            return calidad
+        return limitar_calidad(calidad, usuario.suscripcion.calidad_maxima)
+
+    def reproducir_ficha(self, ficha, premium=False, motor_html5=True, usuario=None):
+        motor = MotorHTML5() if motor_html5 else MotorNativo()
+        reproductor = ReproductorPremium(motor) if premium else ReproductorEstandar(motor)
+        calidad = self.calidad_para(usuario)
+        return reproductor.reproducir_contenido(ficha.contenido_base.titulo, calidad)
+
+    def obtener_subtitulos(self, codigo_idioma):
+        return self._adaptador_subtitulos.obtener_subtitulos(codigo_idioma)
+
+    def crear_lista_reproduccion(self, nombre, fichas):
+        lista = ListaReproduccion(nombre)
+        for ficha in fichas:
+            lista.agregar(ContenidoHoja(ficha.contenido_base))
+        return lista
+
+    def mejorar_contenido(self, contenido, idioma_subtitulos=None,
+                           audio_descriptivo=False, texto_marca_agua=None):
+        resultado = contenido
+        if idioma_subtitulos:
+            resultado = ConSubtitulos(resultado, idioma_subtitulos)
+        if audio_descriptivo:
+            resultado = ConAudioDescriptivo(resultado)
+        if texto_marca_agua:
+            resultado = ConMarcaDeAgua(resultado, texto_marca_agua)
+        return resultado
+
+    def clonar_ficha_para_region(self, ficha, region):
+        fabrica = self.FABRICAS_REGIONALES.get(region, FabricaConfiguracionLatam)()
+        clon = ficha.clonar()
+        clon.clasificacion_audiencia = fabrica.crear_politica_clasificacion().obtener_clasificacion_por_defecto()
+        idiomas = fabrica.crear_configuracion_idiomas()
+        clon.idiomas_disponibles = [idiomas.obtener_idioma_principal()] + idiomas.obtener_idiomas_secundarios()
+        return clon
+
+    def reproducir_protegido(self, ficha, usuario):
+        proxy = self.proxy_de(usuario)
+        edad_minima = edad_minima_de(ficha.clasificacion_audiencia)
+        return proxy.transmitir(ficha.contenido_base.titulo, edad_minima)
+
+    def proxy_de(self, usuario):
+        if usuario.nombre not in self._proxies:
+            self._proxies[usuario.nombre] = ProxyServidorStreaming(usuario)
+        return self._proxies[usuario.nombre]
+
+    def iniciar_sesion(self, ficha, usuario, minuto=0):
+        calidad = self.calidad_para(usuario)
+        perfil = self._fabrica_perfiles.obtener(calidad)
+        sesion = SesionReproduccion(usuario.nombre, ficha.contenido_base.titulo, minuto, perfil)
+        self._sesiones.append(sesion)
+        return sesion
+
+    def total_sesiones(self):
+        return len(self._sesiones)
+
+    def total_perfiles(self):
+        return self._fabrica_perfiles.total_perfiles_creados()
+
+    def crear_iterador(self, lista, tipo=None):
+        """Iterator: recorre los contenidos de una lista (o solo un tipo)."""
+        return lista.crear_iterador(tipo)
+
+    def crear_mediador_reproduccion(self, lista=None, autorizar=None):
+        """Mediator + Iterator + Memento: arma los controles de reproduccion
+        ya conectados. Si se da una lista, la cola la recorre con un iterador."""
+        cola = ColaReproduccion()
+        if lista is not None:
+            cola.cargar(lista.crear_iterador())
+        return MediadorReproduccion(ControlReproduccion(), ControlSubtitulos(),
+                                    cola, RegistroActividad(), autorizar=autorizar)
+
+    def suscribir_usuario(self, usuario, generos=None):
+        """Observer: el perfil recibe las novedades de los generos que le interesan."""
+        if usuario.nombre not in self._suscriptores:
+            suscriptor = SuscriptorUsuario(usuario.nombre, generos)
+            self._suscriptores[usuario.nombre] = suscriptor
+            self.canal_novedades.suscribir(suscriptor)
+        return self._suscriptores[usuario.nombre]
+
+    def anunciar_novedad(self, ficha):
+        """Observer: avisa a los suscriptores que hay un titulo nuevo."""
+        contenido = ficha.contenido_base
+        self.canal_novedades.publicar(Novedad(contenido.titulo, contenido.tipo, ficha.genero or "Sin genero"))
+
+    def bandeja_de(self, usuario):
+        return self._suscriptores[usuario.nombre]
+
+    def generar_reporte(self, lista):
+        """Visitor: reporte del catalogo sin modificar las clases del contenido."""
+        visitante = VisitanteReporte()
+        lista.aceptar(visitante)
+        return visitante
+
+    def calcular_costo_licencias(self, lista):
+        """Visitor: costo de licencias de una lista."""
+        visitante = VisitanteCostoLicencias()
+        lista.aceptar(visitante)
+        return visitante
